@@ -26,12 +26,41 @@
 
 ;;; Code:
 
+(defun er/mark-inside-x-python-quotes ()
+  "Mark the inside of the current string, not including the quotation marks."
+  (interactive)
+  (let ((beg (py-in-string-p)))
+    (when beg
+      (goto-char beg)
+      ;; Skipping quote characters one-by-one will do the wrong thing
+      ;; if a triple-quoted string ends with an escaped quote, e.g.
+      ;; """The last word is \"quoted.\""""
+      (let ((q-skip (if (looking-at "\"\"\"\\|'''") 3 1)))
+        (forward-sexp)
+        (backward-char q-skip)
+        (set-mark (point))
+        (goto-char beg)
+        (forward-char q-skip)))))
+
+(defun er/mark-outside-x-python-quotes ()
+  "Mark the current string, including the quotation marks."
+  (interactive)
+  (let ((beg (py-in-string-p)))
+    (when beg
+      (goto-char beg)
+      (set-mark (point))
+      (forward-sexp)
+      (exchange-point-and-mark))))
+
 (defun er/add-x-python-mode-expansions ()
   "Adds Python-specific expansions for buffers in python-mode"
   (set (make-local-variable 'er/try-expand-list)
        (append
-        er/try-expand-list
+        (remove 'er/mark-inside-quotes
+                (remove 'er/mark-outside-quotes er/try-expand-list))
         '(py-mark-expression
+          er/mark-inside-x-python-quotes
+          er/mark-outside-x-python-quotes
           py-mark-statement
           py-mark-clause
           py-mark-def
