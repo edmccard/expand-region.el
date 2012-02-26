@@ -52,6 +52,30 @@
       (forward-sexp)
       (exchange-point-and-mark))))
 
+(defun er/mark-x-python-compound-statement ()
+  "Mark the current compound statement (if/else or try/except/finally)."
+  (interactive)
+  (let ((secondary-re
+         (save-excursion
+           (py-mark-block-or-clause)
+           (cond ((looking-at "if\\|else") "else")
+                 ((looking-at "try\\|except\\|finally") "except\\|finally"))))
+        start-col)
+    (when secondary-re
+      (py-mark-block-or-clause)
+      (setq start-col (current-column))
+      (while (looking-at secondary-re)
+        (previous-line) (back-to-indentation)
+        (while (> (current-column) start-col)
+          (previous-line) (back-to-indentation)))
+      (set-mark (point))
+      (py-goto-beyond-clause) (next-line) (back-to-indentation)
+      (while (and (looking-at secondary-re)
+                  (>= (current-column) start-col))
+        (py-goto-beyond-clause) (next-line) (back-to-indentation))
+      (previous-line) (end-of-line)
+      (exchange-point-and-mark))))
+
 (defun er/add-x-python-mode-expansions ()
   "Adds Python-specific expansions for buffers in python-mode"
   (set (make-local-variable 'er/try-expand-list)
@@ -63,6 +87,7 @@
           er/mark-outside-x-python-quotes
           py-mark-statement
           py-mark-clause
+          er/mark-x-python-compound-statement
           py-mark-def
           py-mark-block))))
 
