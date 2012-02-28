@@ -26,6 +26,8 @@
 
 ;;; Code:
 
+(require 'expand-region-core)
+
 (defun er/mark-inside-x-python-quotes ()
   "Mark the inside of the current string, not including the quotation marks."
   (interactive)
@@ -91,8 +93,7 @@
           py-mark-def
           py-mark-block))))
 
-(eval-after-load "python-mode"
-  '(add-hook 'python-mode-hook 'er/add-x-python-mode-expansions))
+'(add-hook 'python-mode-hook 'er/add-x-python-mode-expansions))
 
 (provide 'x-python-mode-expansions)
 
