@@ -53,12 +53,12 @@
       (exchange-point-and-mark))))
 
 (defun er/mark-x-python-compound-statement ()
-  "Mark the current compound statement (if/else or try/except/finally)."
+  "Mark the current compound statement (if, while, for, try) and all clauses."
   (interactive)
   (let ((secondary-re
          (save-excursion
            (py-mark-block-or-clause)
-           (cond ((looking-at "if\\|else") "else")
+           (cond ((looking-at "if\\|for\\|while\\|else\\|elif") "else\\|elif")
                  ((looking-at "try\\|except\\|finally") "except\\|finally"))))
         start-col)
     (when secondary-re
