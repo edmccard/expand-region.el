@@ -21,8 +21,8 @@
 
 ;;; Commentary:
 
-;; There is no need for a er/mark-python-defun since
-;; er/mark-python-block will mark it
+;; This provides expansions for both the built-in python.el
+;; and for python-mode.el from <https://launchpad.net/python-mode>.
 
 ;; Feel free to contribute any other expansions for Python at
 ;;
@@ -32,18 +32,22 @@
 
 (require 'expand-region-core)
 
-(defun er--python-string-start-pos ()
-  "Returns character address of start of string, nil if not inside. "
-  (let ((pt (point)))
-    (save-excursion
-      ;; python-beginning-of-string returns the current
-      ;; position if point is not in a string, so we have
-      ;; to check if point moved, and if not, we check if
-      ;; we weren't already on the first quote of a string
-      (python-beginning-of-string)
-      (cond ((/= pt (point)) (point))
-            ((looking-at "\"\\|'") (point))
-            (t nil)))))
+(if (fboundp 'python-beginning-of-string)
+    ;; python.el
+    (defun er--python-string-start-pos ()
+      "Returns character address of start of string, nil if not inside. "
+      (let ((pt (point)))
+        (save-excursion
+          ;; python-beginning-of-string returns the current
+          ;; position if point is not in a string, so we have
+          ;; to check if point moved, and if not, we check if
+          ;; we weren't already on the first quote of a string
+          (python-beginning-of-string)
+          (cond ((/= pt (point)) (point))
+                ((looking-at "\"\\|'") (point))
+                (t nil)))))
+  ;; python-mode.el
+  (defalias 'er--python-string-start-pos 'py-in-string-p))
 
 (defun er/mark-inside-python-quotes ()
   "Mark the inside of the current string, not including the quotation marks."
@@ -78,6 +82,32 @@
   (set-mark (point))
   (python-beginning-of-statement))
 
+(when (fboundp 'py-mark-block-or-clause)
+  ;; Duplicating this for python.el would require a bit of work.
+  (defun er/mark-x-python-compound-statement ()
+    "Mark the current compound statement (if, while, for, try) and all clauses."
+    (interactive)
+    (let ((secondary-re
+           (save-excursion
+             (py-mark-block-or-clause)
+             (cond ((looking-at "if\\|for\\|while\\|else\\|elif") "else\\|elif")
+                   ((looking-at "try\\|except\\|finally") "except\\|finally"))))
+          start-col)
+      (when secondary-re
+        (py-mark-block-or-clause)
+        (setq start-col (current-column))
+        (while (looking-at secondary-re)
+          (previous-line) (back-to-indentation)
+          (while (> (current-column) start-col)
+            (previous-line) (back-to-indentation)))
+        (set-mark (point))
+        (py-goto-beyond-clause) (next-line) (back-to-indentation)
+        (while (and (looking-at secondary-re)
+                    (>= (current-column) start-col))
+          (py-goto-beyond-clause) (next-line) (back-to-indentation))
+        (previous-line) (end-of-line)
+        (exchange-point-and-mark)))))
+
 (defun er/add-python-mode-expansions ()
   "Adds Python-specific expansions for buffers in python-mode"
   (set (make-local-variable 'er/try-expand-list)
@@ -85,10 +115,21 @@
                (remove 'er/mark-outside-quotes
                        (append
                         er/try-expand-list
-                        '(er/mark-python-statement
-                          er/mark-inside-python-quotes
-                          er/mark-outside-python-quotes
-                          python-mark-block))))))
+                        (if (fboundp 'python-mark-block)
+                            ;; python.el
+                            '(er/mark-python-statement
+                              er/mark-inside-python-quotes
+                              er/mark-outside-python-quotes
+                              python-mark-block)
+                          ;; python-mode.el
+                          '(py-mark-expression
+                            er/mark-inside-python-quotes
+                            er/mark-outside-python-quotes
+                            py-mark-statement
+                            py-mark-clause
+                            er/mark-x-python-compound-statement
+                            py-mark-def
+                            py-mark-block)))))))
 
 (add-hook 'python-mode-hook 'er/add-python-mode-expansions)
 
